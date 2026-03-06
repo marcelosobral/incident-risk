@@ -1,4 +1,4 @@
-# Tricura Incident Risk
+# Incident Risk
 
 ## Overview
 This project builds a resident-level risk model to predict whether a resident will experience any incident in the next 30 days. The goal is to help skilled nursing facilities identify high-risk residents early and apply preventive interventions that reduce incident frequency and severity.
