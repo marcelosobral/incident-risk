@@ -1,9 +1,10 @@
 # Plan: EDA-First Modeling Pipeline
 
-Start by deepening EDA to understand each table, timestamp fields, and join keys, then define a target after the data reveals what is feasible. Use a resident-day frame with a 7/30-day horizon, strictly pre-incident features, and a time-based split for validation. Build a minimal, traceable pipeline in notebooks plus lightweight helpers under src, and capture findings and decisions in the README.
+Start by deepening EDA to understand each table, timestamp fields, and join keys, then define a target after the data reveals what is feasible. Use a resident-week frame with a 30-day horizon, strictly pre-incident features, and a time-based split for validation. Build a minimal, traceable pipeline in notebooks plus lightweight helpers under src, and capture findings and decisions in the README.
 
 ## Steps
 1. Expand EDA in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb): column summaries, missingness, timestamp ranges, and join key coverage across tables; flag candidate event timestamps and potential leakage fields.
+2. Profile the datavision dataset in [notebooks/02_datavision_eda.ipynb](notebooks/02_datavision_eda.ipynb) and flag sparse or low-signal features.
 2. Create a simple data dictionary in [README.md](README.md): table purposes, key columns, time columns, and known caveats.
 3. Define candidate targets from EDA (e.g., any incident within 7/30 days) and pick the final one based on prevalence, label feasibility, and business relevance; document this in [README.md](README.md).
 4. Build a resident-day dataset with a rolling lookback window (e.g., 30/90 days) using only pre-incident data; store feature assembly helpers in [src/data](src/data) and [src/features](src/features).
@@ -20,8 +21,8 @@ Start by deepening EDA to understand each table, timestamp fields, and join keys
 - Strictly pre-incident features only.
 - Time-based train/validation split.
 - Active resident definition: admission_date <= snapshot <= discharge_date (or null discharge).
-- Snapshot range (current): 2025-01-01 to 2025-12-31.
-- Return-to-hospital label from hospital_admissions only; transfers are features only.
+- Snapshot range (current): 2023-08-01 to 2025-01-31.
+- Return-to-hospital label uses hospital_admissions only and excludes planned admissions when status is available; transfers are features only.
 
 # Agent Instructions --- Tricura ML Case
 
