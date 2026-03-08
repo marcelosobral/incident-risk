@@ -1,7 +1,7 @@
-# Tricura Incident Risk
+# Incident Risk
 
 ## Overview
-This project builds a resident-level risk model to predict whether a resident will experience any incident in the next 30 days. The goal is to help skilled nursing facilities identify high-risk residents early and apply preventive interventions that reduce incident frequency and severity.
+This project builds resident-level risk models to predict whether a resident will experience a fall or return-to-hospital event in the next 30 days. The goal is to help skilled nursing facilities identify high-risk residents early and apply preventive interventions that reduce incident frequency and severity.
 
 ## Discovery
 - Data is spread across 17 parquet tables with a mix of high-volume longitudinal signals (vitals, medications, functional responses) and smaller event tables (incidents, injuries).
@@ -10,8 +10,8 @@ This project builds a resident-level risk model to predict whether a resident wi
 - Incident volume ramps up in mid-2023 and stays fairly stable through early 2025.
 
 ## Methodology
-- Frame the task as binary classification with a 30-day prediction horizon.
-- Build a resident-day (or resident-week) timeline and generate features using only data available prior to the prediction date to avoid leakage.
+- Frame the task as two binary classification problems with a 30-day prediction horizon (falls and RTH).
+- Build a resident-week timeline and generate features using only data available prior to the prediction date to avoid leakage.
 - Use a time-based train/validation split (train on earlier periods, validate on later periods).
 
 ## Modeling Plan
@@ -31,13 +31,22 @@ This project builds a resident-level risk model to predict whether a resident wi
 - Largest tables: vitals (2.5M rows), medications (1.4M), gg_responses (660k), document_tags (562k), adl_responses (480k).
 - Time coverage is broad: incidents span 2019-2025, while several care/clinical tables extend into 2026.
 - Missingness is concentrated in expected columns (e.g., resolved_at, deceased_date, optional fields).
-- Data quality notes: timestamp outliers exist (e.g., physician_orders.start_at in 1855) and location categories show duplicates/near-duplicates, so normalization and date correction rules are required.
+- Data quality notes: timestamp outliers exist (e.g., physician_orders.start_at in 1855). Records with out-of-range timestamps are dropped for modeling.
+
+## Datavision Dataset
+- Snapshot range: 2023-08-01 to 2025-01-31, weekly (Mondays).
+- Labels:
+	- label_fall_30d: fall event within next 30 days.
+	- label_rth_30d: any hospital admission within next 30 days, excluding planned admissions when status is available.
+- Output files:
+	- outputs/datavision_weekly_2025.parquet
+	- outputs/datavision_weekly_2023-08_2025-01.parquet
+- EDA notebook: notebooks/02_datavision_eda.ipynb
 
 ## Next Steps
-- Formalize the resident timeline dataset with strict pre-incident feature windows.
-- Implement heuristic timestamp correction (e.g., year shifts or month/day swaps) for flagged outliers while retaining raw fields for traceability.
-- Build feature groups across incidents, medications, diagnoses, functional status, vitals, and care plans.
-- Train, validate, and interpret the model, then summarize results and business impact.
+- Refine features by pruning sparse counts and high-missing recency fields.
+- Train baseline models for falls and RTH with temporal validation.
+- Summarize model performance and business impact.
 
 ## Appendix
 
