@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 
@@ -32,11 +33,35 @@ class BaseDatavisionMixin:
         missing = required - set(self.df.columns)
         self.assertFalse(missing, f"Missing required columns: {missing}")
 
+    def test_key_columns_non_null(self) -> None:
+        key_cols = ["resident_id", "facility_id", "snapshot_date"]
+        for col in key_cols:
+            self.assertFalse(self.df[col].isna().any(), f"{col} has null values")
+
+    def test_labels_binary(self) -> None:
+        for col in ("label_fall_30d", "label_rth_30d"):
+            series = self.df[col].dropna()
+            invalid = series[~series.isin([0, 1])]
+            self.assertTrue(invalid.empty, f"{col} has non-binary values")
+
+    def test_labels_have_both_classes(self) -> None:
+        for col in ("label_fall_30d", "label_rth_30d"):
+            unique = self.df[col].dropna().unique()
+            self.assertGreaterEqual(len(unique), 2, f"{col} has only one class")
+
     def test_snapshot_date_range(self) -> None:
         dates = pd.to_datetime(self.df["snapshot_date"], errors="coerce")
         self.assertFalse(dates.isna().any(), "snapshot_date has NaT values")
         # Weekly snapshots on Monday
         self.assertTrue((dates.dt.dayofweek == 0).all(), "snapshot_date not on Monday")
+
+    def test_snapshot_date_weekly_cadence(self) -> None:
+        dates = pd.to_datetime(self.df["snapshot_date"], errors="coerce")
+        unique_dates = dates.dropna().drop_duplicates().sort_values()
+        if len(unique_dates) < 2:
+            self.skipTest("Not enough snapshot dates to check cadence")
+        deltas = unique_dates.diff().dt.days.dropna()
+        self.assertTrue((deltas % 7 == 0).all(), "snapshot_date cadence not weekly")
 
 
 class TestDatavisionWeekly2025(BaseDatavisionMixin, unittest.TestCase):
@@ -64,6 +89,22 @@ class TestDatavisionWeekly2023to2025(BaseDatavisionMixin, unittest.TestCase):
             series = self.df[col].dropna()
             invalid = series[~series.isin([0, 1])]
             self.assertTrue(invalid.empty, f"{col} has non-binary values")
+
+    def test_counts_integer_like(self) -> None:
+        count_cols = [
+            c
+            for c in self.df.columns
+            if c.endswith("_count_30d") or c.endswith("_count_90d") or c.endswith("_count_180d")
+        ]
+        if not count_cols:
+            self.skipTest("No count columns found")
+        for col in count_cols:
+            series = self.df[col].dropna().astype(float)
+            fractional = series - np.floor(series)
+            self.assertTrue(
+                np.isclose(fractional, 0).all(),
+                f"{col} has non-integer values",
+            )
 
     def test_counts_nonnegative(self) -> None:
         count_cols = [c for c in self.df.columns if c.endswith("_count_30d") or c.endswith("_count_90d") or c.endswith("_count_180d")]

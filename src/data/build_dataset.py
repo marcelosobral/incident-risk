@@ -7,6 +7,17 @@ import pandas as pd
 from src.data.build_snapshots import build_resident_snapshots, build_snapshot_calendar
 from src.data.load_raw import filter_tables_by_date_range, load_parquet_tables
 from src.features.event_features import build_event_features, make_event_table
+from src.features.derived_features import (
+    add_care_plan_signals,
+    add_comorbidity_flags,
+    add_facility_effects,
+    add_fall_injury_features,
+    add_functional_status_trends,
+    add_medication_risk,
+    add_resident_risk_signals,
+    add_resident_demographics,
+    add_vital_type_features,
+)
 from src.features.labels import build_fall_events, build_rth_events, label_from_events
 from src.utils.time_utils import pick_time_col_for_table
 
@@ -29,6 +40,7 @@ FEATURE_TABLES = [
     "lab_reports",
     "medications",
     "physician_orders",
+    "therapy_tracks",
     "vitals",
 ]
 
@@ -71,6 +83,52 @@ def build_dataset(
             windows_days=FEATURE_WINDOWS_DAYS,
             prefix=table_name,
         )
+
+    snapshots = add_resident_demographics(snapshots, residents, copy=False)
+    snapshots = add_comorbidity_flags(snapshots, filtered.get("diagnoses", pd.DataFrame()), copy=False)
+    snapshots = add_functional_status_trends(
+        snapshots,
+        filtered.get("adl_responses", pd.DataFrame()),
+        filtered.get("gg_responses", pd.DataFrame()),
+        copy=False,
+    )
+    snapshots = add_vital_type_features(snapshots, filtered.get("vitals", pd.DataFrame()), copy=False)
+    snapshots = add_medication_risk(snapshots, filtered.get("medications", pd.DataFrame()), copy=False)
+    snapshots = add_fall_injury_features(
+        snapshots,
+        filtered.get("incidents", pd.DataFrame()),
+        filtered.get("injuries", pd.DataFrame()),
+        copy=False,
+    )
+    snapshots = add_facility_effects(
+        snapshots,
+        filtered.get("incidents", pd.DataFrame()),
+        filtered.get("hospital_admissions", pd.DataFrame()),
+        copy=False,
+    )
+
+    snapshots = add_resident_risk_signals(
+        snapshots,
+        filtered.get("gg_responses", pd.DataFrame()),
+        filtered.get("medications", pd.DataFrame()),
+        filtered.get("adl_responses", pd.DataFrame()),
+        filtered.get("diagnoses", pd.DataFrame()),
+        filtered.get("vitals", pd.DataFrame()),
+        filtered.get("hospital_admissions", pd.DataFrame()),
+        filtered.get("incidents", pd.DataFrame()),
+        filtered.get("therapy_tracks", pd.DataFrame()),
+        copy=False,
+    )
+
+    snapshots = add_care_plan_signals(snapshots, filtered.get("care_plans", pd.DataFrame()), copy=False)
+    care_plan_drop = [
+        c
+        for c in snapshots.columns
+        if c.startswith("care_plans_")
+        and c not in {"care_plans_days_since_last", "care_plans_count_total"}
+    ]
+    if care_plan_drop:
+        snapshots = snapshots.drop(columns=care_plan_drop)
 
     fall_events = build_fall_events(filtered.get("incidents", pd.DataFrame()))
     snapshots = label_from_events(

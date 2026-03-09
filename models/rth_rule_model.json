@@ -1,0 +1,6 @@
+{
+  "days_col": "hospital_admissions_days_since_last",
+  "count_col": "hospital_admissions_count_90d",
+  "days_threshold": 30,
+  "count_threshold": 2
+}

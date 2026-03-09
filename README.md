@@ -15,9 +15,12 @@ This project builds resident-level risk models to predict whether a resident wil
 - Use a time-based train/validation split (train on earlier periods, validate on later periods).
 
 ## Modeling Plan
-- Start with a baseline model (logistic regression) and progress to LightGBM for stronger tabular performance.
-- Prioritize interpretability and calibrated risk scores to enable actionability.
-- Track performance using AUROC and PR-AUC, and include an operational metric such as Recall at Top 10% risk.
+We now implement a three-tier modeling stack per label:
+- Rule-based baseline (heuristics).
+- Small interpretable decision tree.
+- Gradient boosting (LightGBM).
+
+Metrics tracked: precision, recall, F1, ROC-AUC, PR-AUC, and Recall@Top10%.
 
 ## Validation
 - Use temporal validation (no random splits).
@@ -43,10 +46,47 @@ This project builds resident-level risk models to predict whether a resident wil
 	- outputs/datavision_weekly_2023-08_2025-01.parquet
 - EDA notebook: notebooks/02_datavision_eda.ipynb
 
+## Modeling Pipeline (Implemented)
+- Rule-based baselines: notebooks/03_rule_based.ipynb
+- Decision tree models: notebooks/04_decision_tree.ipynb
+- LightGBM models:
+	- notebooks/05_lgb_fall.ipynb
+	- notebooks/06_lgb_rth.ipynb
+
+### Shared Modeling Conventions
+- Temporal split:
+	- Train: snapshot_date < 2024-07-01
+	- Validation: 2024-07-01 <= date < 2024-11-01
+	- Test: date >= 2024-11-01
+- Feature filtering:
+	- Drop identifiers (resident_id, facility_id) and snapshot date columns.
+	- Drop constant features (nunique <= 1).
+	- Drop very sparse features (missing_rate > 0.95).
+	- Fill days_since_last_* missing values with 365.
+	- Impute remaining numeric missing values with train medians per split (train medians used as fallback for val/test).
+	- Stability filtering uses train + validation only; test drift is logged but not used to filter features.
+- Label mapping:
+	- Use fall_next_30d and rth_next_30d (maps from label_fall_30d/label_rth_30d if needed).
+
+### Artifacts and Reports
+- Model artifacts saved under models/:
+	- fall_rule_model.json
+	- rth_rule_model.json
+	- fall_tree_model.pkl
+	- rth_tree_model.pkl
+	- fall_lgb_model.pkl
+	- rth_lgb_model.pkl
+- Reports saved under reports/:
+	- model_metrics.csv
+	- feature_importance_decision_tree.csv
+	- feature_importance_lightgbm_fall.csv
+	- feature_importance_lightgbm_rth.csv
+	- reports/plots/ (for ROC/PR/feature importance/calibration plots as generated)
+
 ## Next Steps
-- Refine features by pruning sparse counts and high-missing recency fields.
-- Train baseline models for falls and RTH with temporal validation.
-- Summarize model performance and business impact.
+- Finalize the manual feature drop list in notebooks/02_datavision_eda.ipynb and write outputs/selected_features.csv.
+- Run notebooks/03_rule_based.ipynb through notebooks/06_lgb_rth.ipynb to regenerate metrics and artifacts.
+- Add or refresh plots (ROC, PR, calibration, feature importance) under reports/plots/ and summarize results.
 
 ## Appendix
 

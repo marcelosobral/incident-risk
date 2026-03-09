@@ -5,11 +5,11 @@ Start by deepening EDA to understand each table, timestamp fields, and join keys
 ## Steps
 1. Expand EDA in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb): column summaries, missingness, timestamp ranges, and join key coverage across tables; flag candidate event timestamps and potential leakage fields.
 2. Profile the datavision dataset in [notebooks/02_datavision_eda.ipynb](notebooks/02_datavision_eda.ipynb) and flag sparse or low-signal features.
-2. Create a simple data dictionary in [README.md](README.md): table purposes, key columns, time columns, and known caveats.
-3. Define candidate targets from EDA (e.g., any incident within 7/30 days) and pick the final one based on prevalence, label feasibility, and business relevance; document this in [README.md](README.md).
-4. Build a resident-day dataset with a rolling lookback window (e.g., 30/90 days) using only pre-incident data; store feature assembly helpers in [src/data](src/data) and [src/features](src/features).
-5. Train a baseline model (e.g., logistic regression or lightgbm) and evaluate with time-based split; add calibration and threshold analysis for actionable risk tiers in [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb) or a new modeling notebook.
-6. Add explainability (feature importance/SHAP) and summarize insights + limitations in [README.md](README.md).
+3. Maintain the data dictionary in [README.md](README.md): table purposes, key columns, time columns, and known caveats.
+4. Confirm targets based on prevalence and business relevance; document decisions in [README.md](README.md).
+5. Build a resident-week dataset with rolling lookback windows using only pre-incident data; keep feature assembly helpers in [src/data](src/data) and [src/features](src/features).
+6. Train three models per label (rule-based, decision tree, LightGBM) with a time-based split; run notebooks under [notebooks](notebooks).
+7. Tune LightGBM with Optuna, capture feature importance, and summarize results in [README.md](README.md).
 
 ## Verification
 - Re-run the notebook(s) end-to-end; confirm no leakage by checking feature timestamps vs label window.
@@ -23,6 +23,11 @@ Start by deepening EDA to understand each table, timestamp fields, and join keys
 - Active resident definition: admission_date <= snapshot <= discharge_date (or null discharge).
 - Snapshot range (current): 2023-08-01 to 2025-01-31.
 - Return-to-hospital label uses hospital_admissions only and excludes planned admissions when status is available; transfers are features only.
+- Modeling labels in notebooks use fall_next_30d and rth_next_30d (mapped from label_fall_30d/label_rth_30d if needed).
+- Missing values are handled per split (days_since_last_* -> 365, other numeric -> train medians).
+- Feature stability filtering uses train + validation only; test drift is logged only.
+- Decision trees use max_depth=4 and permutation importance on validation data.
+- LightGBM tuning uses Optuna (TPE sampler + MedianPruner) and scale_pos_weight for imbalance.
 
 # Agent Instructions --- Tricura ML Case
 
@@ -133,12 +138,43 @@ Many datasets also include timestamps.
 
 The project must follow this structure:
 
-tricura-incident-risk │ ├── agent_instructions.md ├── data │ └── raw │
-├── notebooks │ └── 01_eda.ipynb │ ├── src │ ├── data │ │ load_data.py │
-│ build_timeline.py │ │ │ ├── features │ │ feature_engineering.py │ │
-feature_aggregation.py │ │ │ ├── models │ │ train_model.py │ │
-evaluate_model.py │ │ │ └── utils │ config.py │ metrics.py │ ├── outputs
-│ ├── requirements.txt └── README.md
+tricura-incident-risk
+├── AGENT_INSTRUCTIONS.md
+├── README.md
+├── data/
+│   └── raw/
+├── notebooks/
+│   ├── 01_eda.ipynb
+│   ├── 02_datavision_eda.ipynb
+│   ├── 03_rule_based.ipynb
+│   ├── 04_decision_tree.ipynb
+│   ├── 05_lgb_fall.ipynb
+│   └── 06_lgb_rth.ipynb
+├── outputs/
+│   ├── datavision_weekly_2025.parquet
+│   └── datavision_weekly_2023-08_2025-01.parquet
+├── reports/
+│   ├── model_metrics.csv
+│   ├── feature_importance.csv
+│   └── plots/
+├── models/
+│   ├── fall_rule_model.json
+│   ├── rth_rule_model.json
+│   ├── fall_tree_model.pkl
+│   ├── rth_tree_model.pkl
+│   ├── fall_lgb_model.pkl
+│   └── rth_lgb_model.pkl
+├── src/
+│   ├── data/
+│   │   ├── build_dataset.py
+│   │   ├── build_snapshots.py
+│   │   └── load_raw.py
+│   ├── features/
+│   │   ├── event_features.py
+│   │   └── labels.py
+│   └── utils/
+│       └── time_utils.py
+└── requirements.txt
 
 ------------------------------------------------------------------------
 
@@ -216,9 +252,9 @@ Create a **time-aware modeling dataset**.
 Each row represents:
 
 resident_id\
-reference_date\
+snapshot_date\
 features\
-target
+labels
 
 Rules:
 
@@ -230,9 +266,10 @@ Rules:
 
 # Step 4 --- Feature Engineering
 
-File:
+Files:
 
-src/features/feature_engineering.py
+src/features/event_features.py
+src/features/labels.py
 
 Generate features from multiple tables.
 
@@ -293,9 +330,10 @@ monitoring_flag
 
 Combine engineered features into a single dataset.
 
-Output file:
+Output files:
 
-data/model_dataset.parquet
+outputs/datavision_weekly_2025.parquet
+outputs/datavision_weekly_2023-08_2025-01.parquet
 
 Columns:
 
@@ -308,19 +346,18 @@ incident_next_30_days
 
 # Step 6 --- Model Training
 
-File:
+Notebooks:
 
-src/models/train_model.py
+notebooks/03_rule_based.ipynb
+notebooks/04_decision_tree.ipynb
+notebooks/05_lgb_fall.ipynb
+notebooks/06_lgb_rth.ipynb
 
-Model:
+Models:
 
-LightGBM classifier
-
-Reasons:
-
--   strong tabular performance
--   handles missing values
--   interpretable
+- Rule-based baseline
+- Decision tree (interpretable)
+- LightGBM (high-performance)
 
 ------------------------------------------------------------------------
 
