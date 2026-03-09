@@ -3,6 +3,29 @@
 ## Overview
 This project builds resident-level risk models to predict whether a resident will experience a fall or return-to-hospital event in the next 30 days. The goal is to help skilled nursing facilities identify high-risk residents early and apply preventive interventions that reduce incident frequency and severity.
 
+## Quickstart
+1. Create and activate a Python environment, then install dependencies from [requirements.txt](requirements.txt).
+2. Place the raw parquet tables under [data/raw](data/raw).
+3. Build the Datavision dataset:
+	- `python -m src.data.build_dataset`
+	- Default output: outputs/datavision_weekly_2025.parquet
+4. Run the notebooks in order:
+	- [notebooks/01_eda.ipynb](notebooks/01_eda.ipynb)
+	- [notebooks/02_datavision_eda.ipynb](notebooks/02_datavision_eda.ipynb)
+	- [notebooks/03_rule_based.ipynb](notebooks/03_rule_based.ipynb)
+	- [notebooks/04_decision_tree.ipynb](notebooks/04_decision_tree.ipynb)
+	- [notebooks/05_lgb_fall.ipynb](notebooks/05_lgb_fall.ipynb)
+	- [notebooks/06_lgb_rth.ipynb](notebooks/06_lgb_rth.ipynb)
+	- [notebooks/07_business_application.ipynb](notebooks/07_business_application.ipynb)
+
+## Project Structure
+- [src/data](src/data): dataset construction and snapshot generation.
+- [src/features](src/features): feature engineering and label creation.
+- [notebooks](notebooks): EDA, modeling, evaluation, and business application workflow.
+- [models](models): saved model artifacts.
+- [reports](reports): metrics tables and plots.
+- [outputs](outputs): generated datasets and analysis outputs.
+
 ## Discovery
 - Data is spread across 17 parquet tables with a mix of high-volume longitudinal signals (vitals, medications, functional responses) and smaller event tables (incidents, injuries).
 - The incidents table has 3,578 records across 987 residents and 92 facilities.
@@ -35,6 +58,26 @@ Metrics tracked: precision, recall, F1, ROC-AUC, PR-AUC, and Recall@Top10%.
 - Time coverage is broad: incidents span 2019-2025, while several care/clinical tables extend into 2026.
 - Missingness is concentrated in expected columns (e.g., resolved_at, deceased_date, optional fields).
 - Data quality notes: timestamp outliers exist (e.g., physician_orders.start_at in 1855). Records with out-of-range timestamps are dropped for modeling.
+
+## Data Requirements
+Raw inputs are expected as parquet files under [data/raw](data/raw) with the following filenames:
+- adl_responses.parquet
+- care_plans.parquet
+- diagnoses.parquet
+- document_tags.parquet
+- factors.parquet
+- gg_responses.parquet
+- hospital_admissions.parquet
+- hospital_transfers.parquet
+- incidents.parquet
+- injuries.parquet
+- lab_reports.parquet
+- medications.parquet
+- needs.parquet
+- physician_orders.parquet
+- residents.parquet
+- therapy_tracks.parquet
+- vitals.parquet
 
 ## Datavision Dataset
 - Snapshot range: 2023-08-01 to 2025-01-31, weekly (Mondays).
@@ -83,10 +126,16 @@ Metrics tracked: precision, recall, F1, ROC-AUC, PR-AUC, and Recall@Top10%.
 	- feature_importance_lightgbm_rth.csv
 	- reports/plots/ (for ROC/PR/feature importance/calibration plots as generated)
 
-## Next Steps
-- Finalize the manual feature drop list in notebooks/02_datavision_eda.ipynb and write outputs/selected_features.csv.
-- Run notebooks/03_rule_based.ipynb through notebooks/06_lgb_rth.ipynb to regenerate metrics and artifacts.
-- Add or refresh plots (ROC, PR, calibration, feature importance) under reports/plots/ and summarize results.
+## Results Summary
+For evaluator review, start with [notebooks/07_business_application.ipynb](notebooks/07_business_application.ipynb) for the project summary, then use [reports/model_metrics.csv](reports/model_metrics.csv) to compare models across precision, recall, F1, ROC-AUC, and PR-AUC.
+
+## Project Status
+This project is complete.
+For the final, end-to-end workflow and any implementation specifics, use:
+- Notebooks for the executed modeling pipeline and outputs.
+- src/ for the dataset construction and feature logic used by the notebooks.
+
+If anything in this README appears inconsistent with the code or notebooks, defer to the notebooks and src as the source of truth.
 
 ## Appendix
 
