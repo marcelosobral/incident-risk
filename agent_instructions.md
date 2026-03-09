@@ -155,7 +155,9 @@ tricura-incident-risk
 │   └── datavision_weekly_2023-08_2025-01.parquet
 ├── reports/
 │   ├── model_metrics.csv
-│   ├── feature_importance.csv
+│   ├── feature_importance_decision_tree.csv
+│   ├── feature_importance_lightgbm_fall.csv
+│   ├── feature_importance_lightgbm_rth.csv
 │   └── plots/
 ├── models/
 │   ├── fall_rule_model.json
@@ -197,7 +199,7 @@ The system should be implemented in stages.
 
 File:
 
-src/data/load_data.py
+src/data/load_raw.py
 
 Responsibilities:
 
@@ -207,7 +209,7 @@ Responsibilities:
 
 Example function:
 
-load_all_tables(data_path) -\> dict\[str, pd.DataFrame\]
+load_raw_tables(data_path) -\> dict\[str, pd.DataFrame\]
 
 Libraries:
 
